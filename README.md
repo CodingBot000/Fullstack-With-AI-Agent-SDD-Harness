@@ -1,6 +1,6 @@
 # Fullstack + AI Agent SDD/Harness Starter Kit
 
-Codex와 Claude Code에서 공유하는 **도메인 비종속 개발 규칙, 선택형 전문 스킬, SDD 템플릿, 실행 가능한 검증·평가 기반**입니다. 특정 금융상품, 업무 데이터, 모델 공급자, React/Spring/Python 조합을 전제하지 않습니다.
+Codex와 Claude Code에서 공유하는 **도메인 비종속 개발 규칙, 선택형 전문 스킬, SDD 템플릿, 실행 가능한 검증·평가 기반**입니다. 특정 도메인, 업무 데이터, 모델 공급자, React/Spring/Python 조합을 전제하지 않습니다.
 
 > 이 저장소는 서비스 완제품이 아닙니다. 키트 자체의 자동 검증은 실행되지만, 실제 앱 테스트와 모델 품질 평가는 프로젝트 연결 후 실행됩니다. 연결 전 제품 상태는 `NOT_CONFIGURED`입니다.
 
