@@ -1,0 +1,9 @@
+# Copy to .github/CODEOWNERS only after adding REAL team/user owners.
+# Example patterns needing protection (uncomment and add real owners):
+# /AGENTS.md
+# /CLAUDE.md
+# /.github/
+# /harness/
+# /scripts/
+# /evals/
+# /.agents/

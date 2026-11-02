@@ -1,0 +1,82 @@
+{
+  "validation_date": "2026-11-02",
+  "scope": "starter-kit-only",
+  "status": "PASS",
+  "environment": {
+    "python": "3.13.5",
+    "os": "Linux"
+  },
+  "unit_tests": {
+    "count": 71,
+    "result": "PASS",
+    "duration_seconds": 12.034
+  },
+  "cli_checks": [
+    {
+      "name": "doctor",
+      "command": "python3 scripts/harness.py doctor",
+      "expected_exit_code": 0,
+      "actual_exit_code": 0,
+      "status": "PASS"
+    },
+    {
+      "name": "sync_check",
+      "command": "python3 scripts/harness.py sync-skills --check",
+      "expected_exit_code": 0,
+      "actual_exit_code": 0,
+      "status": "PASS"
+    },
+    {
+      "name": "preflight",
+      "command": "python3 scripts/harness.py preflight",
+      "expected_exit_code": 0,
+      "actual_exit_code": 0,
+      "status": "PASS"
+    },
+    {
+      "name": "unconfigured_project",
+      "command": "python3 scripts/harness.py verify --scope project --report .harness/reports/project.json",
+      "expected_exit_code": 2,
+      "actual_exit_code": 2,
+      "status": "PASS"
+    },
+    {
+      "name": "unconfigured_evaluation",
+      "command": "python3 scripts/evaluate.py",
+      "expected_exit_code": 2,
+      "actual_exit_code": 2,
+      "status": "PASS"
+    },
+    {
+      "name": "adapter_requires_opt_in",
+      "command": "python3 scripts/collect_eval.py",
+      "expected_exit_code": 2,
+      "actual_exit_code": 2,
+      "status": "PASS"
+    },
+    {
+      "name": "optional_stop_hook",
+      "command": "python3 scripts/claude_stop.py",
+      "expected_exit_code": 0,
+      "actual_exit_code": 0,
+      "status": "PASS"
+    },
+    {
+      "name": "optional_stop_hook_reentrant",
+      "command": "python3 scripts/claude_stop.py",
+      "expected_exit_code": 0,
+      "actual_exit_code": 0,
+      "status": "PASS"
+    }
+  ],
+  "not_tested": [
+    "Codex CLI live session",
+    "Claude Code live session",
+    "GitHub-hosted Actions execution",
+    "Real application integration",
+    "Live LLM/RAG/agent quality",
+    "macOS/Windows and Python version matrix"
+  ],
+  "product_state": "NOT_CONFIGURED",
+  "external_model_calls": 0
+}

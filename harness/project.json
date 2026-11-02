@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "mode": "starter",
+  "capabilities": [],
+  "commands": [],
+  "ai_evaluation": {
+    "enabled": false,
+    "config": "evals/config.json",
+    "baseline": null
+  }
+}

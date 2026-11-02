@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dataset": null,
+  "results": null,
+  "run_manifest": null,
+  "source_paths": [],
+  "repetitions": null,
+  "min_cases": null,
+  "adapter": {
+    "argv": [],
+    "cwd": ".",
+    "timeout_seconds": 60
+  },
+  "run_metadata": {
+    "code_ref": null,
+    "model": null,
+    "prompt_version": null,
+    "corpus_version": null,
+    "tool_policy_version": null
+  },
+  "gates": {
+    "min_pass_rate": null,
+    "max_p95_latency_ms": null,
+    "max_mean_cost_usd": null,
+    "max_pass_rate_drop": null,
+    "required_slices": {}
+  }
+}

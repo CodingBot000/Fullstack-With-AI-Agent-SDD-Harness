@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.harness/
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+node_modules/
+.DS_Store
+.claude/settings.local.json
+CLAUDE.local.md
+coverage/
+.pytest_cache/
+# Project-specific datasets, run artifacts, and evidence are private by default.
+evals/datasets/*
+!evals/datasets/README.md
+evidence/*
+!evidence/*.template.md
+!evidence/starter-tests.txt
+!evidence/starter-validation.json

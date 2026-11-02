@@ -1,0 +1,85 @@
+test_adapter_bad_json_is_recorded (test_collect.CollectionTests.test_adapter_bad_json_is_recorded) ... ok
+test_adapter_failure_is_recorded (test_collect.CollectionTests.test_adapter_failure_is_recorded) ... ok
+test_adapter_receives_no_assertions (test_collect.CollectionTests.test_adapter_receives_no_assertions) ... ok
+test_existing_run_not_overwritten (test_collect.CollectionTests.test_existing_run_not_overwritten) ... ok
+test_missing_run_metadata_is_not_configured (test_collect.CollectionTests.test_missing_run_metadata_is_not_configured) ... ok
+test_output_cannot_overwrite_input_dataset (test_collect.CollectionTests.test_output_cannot_overwrite_input_dataset) ... ok
+test_timeout_produces_failed_trial (test_collect.CollectionTests.test_timeout_produces_failed_trial) ... ok
+test_absolute_path_rejected (test_core.CoreTests.test_absolute_path_rejected) ... ok
+test_argv_is_not_shell_evaluated (test_core.CoreTests.test_argv_is_not_shell_evaluated) ... ok
+test_duplicate_json_keys_rejected (test_core.CoreTests.test_duplicate_json_keys_rejected) ... ok
+test_empty_source_selection_rejected (test_core.CoreTests.test_empty_source_selection_rejected) ... ok
+test_missing_executable_is_not_pass (test_core.CoreTests.test_missing_executable_is_not_pass) ... ok
+test_nonfinite_json_rejected (test_core.CoreTests.test_nonfinite_json_rejected) ... ok
+test_path_escape_rejected (test_core.CoreTests.test_path_escape_rejected) ... ok
+test_source_change_detected_and_cache_ignored (test_core.CoreTests.test_source_change_detected_and_cache_ignored) ... ok
+test_symlink_escape_rejected (test_core.CoreTests.test_symlink_escape_rejected) ... ok
+test_timeout_recorded (test_core.CoreTests.test_timeout_recorded) ... ok
+test_baseline_incompatible_contract_rejected (test_evaluate.EvaluationTests.test_baseline_incompatible_contract_rejected) ... ok
+test_baseline_regression_and_bootstrap (test_evaluate.EvaluationTests.test_baseline_regression_and_bootstrap) ... ok
+test_critical_failure_overrides_aggregate_threshold (test_evaluate.EvaluationTests.test_critical_failure_overrides_aggregate_threshold) ... ok
+test_dataset_hash_tamper_rejected (test_evaluate.EvaluationTests.test_dataset_hash_tamper_rejected) ... ok
+test_duplicate_case_id_rejected (test_evaluate.EvaluationTests.test_duplicate_case_id_rejected) ... ok
+test_duplicate_trial_rejected (test_evaluate.EvaluationTests.test_duplicate_trial_rejected) ... ok
+test_empty_assertions_rejected (test_evaluate.EvaluationTests.test_empty_assertions_rejected) ... ok
+test_empty_dataset_rejected (test_evaluate.EvaluationTests.test_empty_dataset_rejected) ... ok
+test_error_record_is_failed_trial (test_evaluate.EvaluationTests.test_error_record_is_failed_trial) ... ok
+test_expected_model_version_checked (test_evaluate.EvaluationTests.test_expected_model_version_checked) ... ok
+test_failed_trial_cannot_be_dropped (test_evaluate.EvaluationTests.test_failed_trial_cannot_be_dropped) ... ok
+test_latency_gate_and_nearest_rank (test_evaluate.EvaluationTests.test_latency_gate_and_nearest_rank) ... ok
+test_metric_gate_rejects_missing_measurement (test_evaluate.EvaluationTests.test_metric_gate_rejects_missing_measurement) ... ok
+test_missing_required_slice_fails (test_evaluate.EvaluationTests.test_missing_required_slice_fails) ... ok
+test_mixed_runs_rejected (test_evaluate.EvaluationTests.test_mixed_runs_rejected) ... ok
+test_negative_metric_rejected (test_evaluate.EvaluationTests.test_negative_metric_rejected) ... ok
+test_out_of_range_trial_rejected (test_evaluate.EvaluationTests.test_out_of_range_trial_rejected) ... ok
+test_repetition_mismatch_rejected (test_evaluate.EvaluationTests.test_repetition_mismatch_rejected) ... ok
+test_required_baseline_missing_rejected (test_evaluate.EvaluationTests.test_required_baseline_missing_rejected) ... ok
+test_result_hash_tamper_rejected (test_evaluate.EvaluationTests.test_result_hash_tamper_rejected) ... ok
+test_slice_threshold_enforced (test_evaluate.EvaluationTests.test_slice_threshold_enforced) ... ok
+test_stale_source_rejected (test_evaluate.EvaluationTests.test_stale_source_rejected) ... ok
+test_unknown_assertion_rejected (test_evaluate.EvaluationTests.test_unknown_assertion_rejected) ... ok
+test_unknown_case_rejected (test_evaluate.EvaluationTests.test_unknown_case_rejected) ... ok
+test_valid_capture_passes (test_evaluate.EvaluationTests.test_valid_capture_passes) ... ok
+test_wrong_output_fails (test_evaluate.EvaluationTests.test_wrong_output_fails) ... ok
+test_zero_repetitions_rejected (test_evaluate.EvaluationTests.test_zero_repetitions_rejected) ... ok
+test_array_contains_respects_boolean_type (test_evaluate.GraderTests.test_array_contains_respects_boolean_type) ... ok
+test_boolean_is_not_number (test_evaluate.GraderTests.test_boolean_is_not_number) ... ok
+test_citation_membership_is_nonempty (test_evaluate.GraderTests.test_citation_membership_is_nonempty) ... ok
+test_external_judge_requires_provenance (test_evaluate.GraderTests.test_external_judge_requires_provenance) ... ok
+test_json_pointer_escaped_keys (test_evaluate.GraderTests.test_json_pointer_escaped_keys) ... ok
+test_missing_evidence_does_not_pass_negative_assertion (test_evaluate.GraderTests.test_missing_evidence_does_not_pass_negative_assertion) ... ok
+test_recall_duplicates_do_not_inflate (test_evaluate.GraderTests.test_recall_duplicates_do_not_inflate) ... ok
+test_tool_argument_subset (test_evaluate.GraderTests.test_tool_argument_subset) ... ok
+test_capability_dependencies_checked (test_harness.HarnessTests.test_capability_dependencies_checked) ... ok
+test_claude_import_is_required (test_harness.HarnessTests.test_claude_import_is_required) ... ok
+test_command_path_escape_rejected (test_harness.HarnessTests.test_command_path_escape_rejected) ... ok
+test_each_skill_requires_preflight (test_harness.HarnessTests.test_each_skill_requires_preflight) ... ok
+test_extra_generated_file_not_silently_deleted (test_harness.HarnessTests.test_extra_generated_file_not_silently_deleted) ... ok
+test_frontend_required_gates_registered (test_harness.HarnessTests.test_frontend_required_gates_registered) ... ok
+test_missing_product_gates_rejected (test_harness.HarnessTests.test_missing_product_gates_rejected) ... ok
+test_new_change_cannot_overwrite (test_harness.HarnessTests.test_new_change_cannot_overwrite) ... ok
+test_new_change_includes_ai_docs (test_harness.HarnessTests.test_new_change_includes_ai_docs) ... ok
+test_new_change_slug_escape_rejected (test_harness.HarnessTests.test_new_change_slug_escape_rejected) ... ok
+test_preflight_prints_rules_and_selected_policy (test_harness.HarnessTests.test_preflight_prints_rules_and_selected_policy) ... ok
+test_project_command_failure_is_failure (test_harness.HarnessTests.test_project_command_failure_is_failure) ... Running gate: test-build
+Running gate: test-e2e
+Running gate: test-static
+Running gate: test-unit
+ok
+test_project_without_change_does_not_claim_traceability (test_harness.HarnessTests.test_project_without_change_does_not_claim_traceability) ... Running gate: test-build
+Running gate: test-e2e
+Running gate: test-static
+Running gate: test-unit
+ok
+test_root_structure_passes (test_harness.HarnessTests.test_root_structure_passes) ... ok
+test_skill_drift_detected_and_repaired (test_harness.HarnessTests.test_skill_drift_detected_and_repaired) ... ok
+test_starter_is_not_product_ready (test_harness.HarnessTests.test_starter_is_not_product_ready) ... ok
+test_traceability_rejects_missing_command_evidence (test_harness.HarnessTests.test_traceability_rejects_missing_command_evidence) ... ok
+test_traceability_requires_real_approval_reference (test_harness.HarnessTests.test_traceability_requires_real_approval_reference) ... ok
+test_unmanaged_skill_preserved (test_harness.HarnessTests.test_unmanaged_skill_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 71 tests in 12.034s
+
+OK
+starter-kit-only: PASS
