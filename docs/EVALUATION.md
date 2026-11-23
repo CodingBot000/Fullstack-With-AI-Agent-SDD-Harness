@@ -27,6 +27,8 @@
 
 JSON pointer는 결과 레코드 루트 기준이다. 출력은 `/output/...`, 외부 시스템 결과는 `/environment/...` 등으로 참조한다. 도구 호출/검색 ID는 trace에서 관찰한다. 외부 시스템 상태는 모델의 “완료했다”는 문장이 아니라 독립 조회 결과를 넣는다.
 
+도구 호출이 하나도 없었다고 관찰한 경우 `trace.tool_calls`를 빈 배열로 기록한다. 관찰값이 누락되거나 호출 항목에 이름이 빠지는 등 형식이 잘못되면 도구 관련 assertion은 실패한다.
+
 **주의:** citations_subset은 사실성 평가가 아니다. tool_called는 도구 이름/인자를 확인할 뿐 실제 권한의 올바름을 증명하지 않는다. 문자열 포함도 답변의 정확성을 대체하지 않는다. 의미·근거 일치·의사결정 유용성은 외부 judge와 사람 검토를 결합한다. 근거: SOURCES S8–S10.
 
 ## 3. 실제 수집
@@ -55,7 +57,7 @@ python3 scripts/evaluate.py --config evals/config.json --report .harness/reports
 python3 scripts/evaluate.py --config evals/config.json --baseline .harness/reports/baseline.json --report .harness/reports/candidate.json
 ```
 
-`max_pass_rate_drop`은 선택 항목이다. 최초 기준선은 이 항목을 null로 실행한 뒤 후보에서 회귀 한도를 추가할 수 있다. 비교 hash는 이 회귀 한도를 제외한 평가 계약을 비교한다. 결과의 delta는 기술 통계이며 유의성/인과관계 증명이 아니다. 데이터/채점 정책을 바꾸면 기존 보고서와 직접 비교하지 말고 기준선도 다시 실행한다.
+`max_pass_rate_drop`은 선택 항목이다. 최초 기준선은 이 항목을 null로 실행한 뒤 후보에서 회귀 한도를 추가할 수 있다. 비교 hash는 이 회귀 한도를 제외한 평가 계약을 비교한다. 결과의 delta는 기술 통계이며 유의성/인과관계 증명이 아니다. 데이터나 채점 코드가 바뀌면 같은 조건으로 기준선도 다시 작성한다. 후보 보고서는 `.harness/reports/`에 고유한 이름으로 기록한다. 이 폴더는 소스 해시 범위에서 제외된다.
 
 ## 6. 의미 judge와 사람 평가
 현재 코드에는 실제 LLM judge 호출이 없다. `score_at_least`는 별도 평가자가 제공한 점수를 읽을 뿐이다. rubric, judge 모델/버전, 근거, 사람 라벨과의 일치도, 거짓 양성/음성 사례를 검수한다. 후보 답변과 검색 문서에 포함된 지시문을 judge 명령으로 취급하지 않도록 격리한다. 답변 길이/순서 편향과 평가 데이터 누수를 확인한다. 점수 조작 방지를 위해 대상 모델이 자신의 scores를 직접 정하지 않게 한다.

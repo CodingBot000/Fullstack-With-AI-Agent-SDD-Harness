@@ -10,7 +10,7 @@ stdout에는 JSON 객체 하나만 쓴다. 필수 `output`에는 실제 제품 �
 
 | 필드 | 형식·주의 |
 |---|---|
-| trace.tool_calls | `{name, arguments}` 목록. 실제 관찰값이며 도구 성공을 주장만으로 기록하지 않는다. |
+| trace.tool_calls | 이름이 있는 관찰된 도구 호출 객체의 목록. `name`은 앞뒤 공백이 없는 문자열이며, 인자를 기록할 때 `arguments`는 객체다. 호출이 없었다고 관찰한 경우 `[]`를 기록한다. |
 | trace.retrieved_ids | 검색 순서의 문서 ID 목록 |
 | trace.citations | 답변에서 참조한 문서 ID 목록 |
 | metrics | latency_ms, ttft_ms, cost_usd, input_tokens, output_tokens. 모르면 생략/null. |

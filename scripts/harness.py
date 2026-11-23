@@ -8,7 +8,7 @@ import re
 import shutil
 import sys
 from _core import (ROOT, ConfigError, command, load_json, positive_int, require,
-                   safe_path, sha256, write_json)
+                   report_config, report_path, safe_path, sha256, write_json, write_report)
 
 CAPABILITIES = {"frontend", "backend", "ai", "rag", "agent", "streaming"}
 REQUIRED_GATES = {
@@ -20,6 +20,9 @@ REQUIRED_GATES = {
     "streaming": {"integration"},
 }
 GENERATED = "<!-- Generated from .agents/skills; edit the canonical file, then run sync-skills. -->\n"
+PROJECT_CONFIG = "harness/project.json"
+CHANGE_DOCUMENTS = ("spec.md", "design.md", "tasks.md", "verification.md")
+AI_CHANGE_DOCUMENTS = ("ai-spec.md", "eval-plan.md")
 
 class EvidenceFailed(Exception):
     """A configured verification ran but its evidence failed."""
@@ -70,7 +73,7 @@ def sync_skills(root: Path = ROOT, check: bool = False) -> list[str]:
 
 
 def project_config(root: Path = ROOT, ready: bool = False) -> dict:
-    cfg = load_json(root / "harness/project.json")
+    cfg = load_json(root / PROJECT_CONFIG)
     require(isinstance(cfg, dict) and cfg.get("schema_version") == 1, "Unsupported project configuration")
     require(cfg.get("mode") in {"starter", "project"}, "mode must be starter or project")
     caps = cfg.get("capabilities")
@@ -163,9 +166,9 @@ def new_change(slug: str, areas: list[str], risk: str, root: Path = ROOT) -> Pat
     destination = safe_path(f"specs/{slug}", root)
     require(not destination.exists(), "Change already exists; no overwrite performed")
     destination.mkdir(parents=True)
-    filenames = ["spec.md", "design.md", "tasks.md", "verification.md"]
+    filenames = CHANGE_DOCUMENTS
     if "ai" in areas or "agent" in areas or "rag" in areas:
-        filenames += ["ai-spec.md", "eval-plan.md"]
+        filenames += AI_CHANGE_DOCUMENTS
     for filename in filenames:
         content = (root/"templates/change"/filename).read_text(encoding="utf-8")
         (destination/filename).write_text(content.replace("{{CHANGE_NAME}}", slug), encoding="utf-8")
@@ -187,9 +190,9 @@ def verify_change(path: Path, cfg: dict, command_results: list[dict], evaluation
     areas = change.get("areas")
     require(isinstance(areas, list) and bool(areas) and all(isinstance(a, str) and a in CAPABILITIES for a in areas), "Invalid change areas")
     require(set(areas) <= set(cfg.get("capabilities", [])), "Change areas must be enabled project capabilities")
-    names = ["spec.md", "design.md", "tasks.md", "verification.md"]
+    names = CHANGE_DOCUMENTS
     if {"ai", "agent", "rag"} & set(areas):
-        names += ["ai-spec.md", "eval-plan.md"]
+        names += AI_CHANGE_DOCUMENTS
     for name in names:
         text = (path/name).read_text(encoding="utf-8")
         require(bool(text.strip()) and "[TODO]" not in text and "{{" not in text, f"Unresolved or empty template in {name}")
@@ -231,7 +234,7 @@ def verify_change(path: Path, cfg: dict, command_results: list[dict], evaluation
 def verify(scope: str, change_path: str | None = None, root: Path = ROOT) -> tuple[dict, int]:
     structure = doctor(root)
     if scope == "kit":
-        execution = command(["{python}", "-m", "unittest", "discover", "-s", "tests", "-v"], root, 180)
+        execution = command(["{python}", "harness/tests/run.py"], root, 180)
         execution.pop("stdout", None)
         report = {"scope": "starter-kit-only", "status": execution["status"], "structure": structure, "self_tests": execution,
                   "product_quality": "NOT_EVALUATED", "agent_cli_integration": "NOT_TESTED_BY_THIS_COMMAND"}
@@ -268,6 +271,29 @@ def verify(scope: str, change_path: str | None = None, root: Path = ROOT) -> tup
     return report, code
 
 
+def verification_inputs(scope: str, change_path: str | None, root: Path = ROOT) -> list[str | None]:
+    paths = [PROJECT_CONFIG, "harness/managed-skills.json"]
+    if scope == "kit":
+        return paths
+    ai = report_config(PROJECT_CONFIG, root).get("ai_evaluation")
+    if isinstance(ai, dict) and ai.get("enabled") is True:
+        from evaluate import evaluation_inputs
+        paths.extend(evaluation_inputs(ai.get("config"), ai.get("baseline"), root))
+    if change_path:
+        change = Path(change_path)
+        paths.extend(str(change / name) for name in ("change.json", *CHANGE_DOCUMENTS, *AI_CHANGE_DOCUMENTS))
+        requirements = report_config(str(change / "change.json"), root).get("requirements")
+        if isinstance(requirements, list):
+            for requirement in requirements:
+                evidence = requirement.get("evidence") if isinstance(requirement, dict) else None
+                if isinstance(evidence, list):
+                    paths.extend(
+                        item.get("path") for item in evidence
+                        if isinstance(item, dict) and item.get("kind") == "manual"
+                    )
+    return paths
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -285,7 +311,7 @@ def main() -> int:
     check = sub.add_parser("verify")
     check.add_argument("--scope", choices=["kit", "project"], required=True)
     check.add_argument("--change")
-    check.add_argument("--report", default=".harness/reports/verification.json")
+    check.add_argument("--report", help="Repository-relative report path (default: .harness/reports/<scope>.json)")
     args = parser.parse_args()
     try:
         if args.command == "doctor":
@@ -303,11 +329,17 @@ def main() -> int:
         elif args.command == "new-change":
             print(new_change(args.name, args.areas, args.risk).relative_to(ROOT))
         elif args.command == "verify":
+            scope = "starter-kit-only" if args.scope == "kit" else "project"
+            output = f".harness/reports/{args.scope}.json" if args.report is None else args.report
+            try:
+                target = report_path(output, scope, verification_inputs(args.scope, args.change))
+            except RuntimeError as exc:
+                raise ConfigError(f"Cannot resolve report path: {exc}") from exc
             try:
                 report, code = verify(args.scope, args.change)
             except (ConfigError, OSError, TypeError, ValueError) as exc:
-                report, code = {"scope": args.scope, "status": "NOT_CONFIGURED_OR_INVALID", "reason": str(exc)}, 2
-            write_json(safe_path(args.report), report)
+                report, code = {"scope": scope, "status": "NOT_CONFIGURED_OR_INVALID", "reason": str(exc)}, 2
+            write_report(target, report)
             print(f"{report['scope']}: {report['status']}")
             if "reason" in report:
                 print(report["reason"])

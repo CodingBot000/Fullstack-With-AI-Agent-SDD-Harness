@@ -8,10 +8,16 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import tempfile
 import time
+from collections.abc import Iterable
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_FINGERPRINT_EXCLUSIONS = {
+    ".git", ".harness", "__pycache__", "node_modules", ".venv", "venv",
+    ".pytest_cache", ".next", "dist", "build", "coverage",
+}
 
 class ConfigError(ValueError):
     """Invalid or incomplete configuration; never silently interpreted as success."""
@@ -73,6 +79,69 @@ def safe_path(value: str, root: Path = ROOT) -> Path:
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+
+
+def report_config(value: str | None, root: Path = ROOT) -> dict:
+    """Read declared input paths when available. The verifier validates the config."""
+    try:
+        data = load_json(safe_path(value, root))
+    except (OSError, ValueError, RuntimeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _require_report_target(path: Path, scope: str) -> None:
+    if not path.exists():
+        return
+    try:
+        old = load_json(path) if path.is_file() else None
+    except (ConfigError, UnicodeError):
+        old = None
+    compatible_scopes = ("starter-kit-only", "kit") if scope == "starter-kit-only" else (scope,)
+    require(
+        isinstance(old, dict) and old.get("scope") in compatible_scopes
+        and old.get("status") in ("PASS", "FAIL", "ERROR", "TIMEOUT", "NOT_CONFIGURED_OR_INVALID"),
+        f"Report path already exists and is not a {scope} report: {path.name}",
+    )
+
+
+def report_path(value: str, scope: str, inputs: Iterable[str | None], root: Path = ROOT) -> Path:
+    root = root.resolve()
+    path = safe_path(value, root)
+    for parent in path.parents:
+        if parent.exists():
+            require(parent.is_dir(), f"Report parent is not a directory: {parent.name}")
+            break
+    for input_value in inputs:
+        try:
+            input_path = safe_path(input_value, root)
+        except (OSError, ValueError, RuntimeError):
+            continue  # Invalid config values are reported by the verifier.
+        matches = input_path.is_relative_to(path)
+        if not matches and path.exists() and input_path.exists():
+            matches = path.samefile(input_path)
+        require(not matches, f"Report path must differ from input files: {path.relative_to(root)}")
+        if input_path.is_dir() and path.is_relative_to(input_path):
+            require(
+                not SOURCE_FINGERPRINT_EXCLUSIONS.isdisjoint(path.relative_to(root).parts),
+                f"Report path is inside a source directory used for evaluation: {path.relative_to(root)}",
+            )
+    _require_report_target(path, scope)
+    return path
+
+
+def write_report(path: Path, data: dict) -> None:
+    _require_report_target(path, data["scope"])
+    content = json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
+        staged = Path(stream.name)
+        try:
+            stream.write(content)
+            stream.close()
+            staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
 
 
 def sha256(path: Path) -> str:
@@ -138,7 +207,6 @@ def command(argv: list[str], cwd: Path, timeout: float, stdin: str | None = None
 def source_fingerprint(paths: list[str], root: Path = ROOT) -> str:
     """Hash explicitly selected implementation/prompt/lock files to reject stale runs."""
     require(isinstance(paths, list) and bool(paths), "Configure source_paths for reproducible evaluation")
-    ignored = {".git", ".harness", "__pycache__", "node_modules", ".venv", "venv", ".pytest_cache", ".next", "dist", "build", "coverage"}
     files: dict[str, str] = {}
     root = root.resolve()
     for value in paths:
@@ -147,7 +215,7 @@ def source_fingerprint(paths: list[str], root: Path = ROOT) -> str:
         candidates = [path] if path.is_file() else path.rglob("*")
         for candidate in candidates:
             relative = candidate.relative_to(root)
-            if any(part in ignored for part in relative.parts) or not candidate.is_file():
+            if not SOURCE_FINGERPRINT_EXCLUSIONS.isdisjoint(relative.parts) or not candidate.is_file():
                 continue
             require(candidate.resolve().is_relative_to(root), "Source symlink escapes repository")
             files[str(relative)] = sha256(candidate)

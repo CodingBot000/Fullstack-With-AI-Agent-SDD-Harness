@@ -7,6 +7,24 @@
 
 기본 CI는 API key가 없고 live LLM을 호출하지 않는다. 제품에 붙일 때 PR의 결정적 회귀 테스트와 권한이 필요한 별도 평가 실행을 분리한다. 평가가 필요한 PR에 “키가 없으니 skip 후 성공”을 적용하지 않는다. 신뢰된 별도 실행 결과를 요구하거나 배포를 막는다.
 
+## 변경별 검증 연결
+
+제품 검증 명령을 먼저 실행해 증거를 모으고, `verification.md`와 `change.json`을 채운다. 기본 `project` job에는 `--change`가 없으므로 이 상태에서 변경별 명세와 증거 연결은 `NOT_REQUESTED`다.
+
+첫 변경을 연결할 때는 아래 단계로 `project` job의 마지막 검증 단계를 바꾼다. 이 단계 앞에서 제품 런타임·테스트 의존성과 필요한 평가 결과를 준비한다. `specs/your-change`를 이번에 검증할 실제 폴더로 바꾼다.
+
+```yaml
+- name: Verify product and change
+  env:
+    CHANGE_SPEC: specs/your-change
+  run: |
+    python3 scripts/harness.py verify --scope project \
+      --change "$CHANGE_SPEC" \
+      --report .harness/reports/change.json
+```
+
+PR마다 변경 경로가 달라지면 프로젝트에서 선택 방법을 정하고, 위 환경 변수에 실제 경로를 전달한다. 변경이 여러 개라면 모두 확인하고 보고서 경로를 분리한다. 해당 job을 merge 조건으로 쓰려면 GitHub에서 실제 job 이름을 필수 검사로 등록한다.
+
 ## merge 강제
 GitHub의 branch protection/ruleset에서 실제 표시되는 check 이름을 확인해 required check로 설정한다. 새 기능의 spec·verification·평가 변경을 리뷰 대상으로 포함한다. 워크플로와 평가 기준을 수정하는 PR도 보호한다. 권한 정책은 저장소 관리자/조직 플랜에 맞춰 설정하며 코드 파일만으로 자동 적용되지 않는다.
 
@@ -14,4 +32,4 @@ GitHub의 branch protection/ruleset에서 실제 표시되는 check 이름을 �
 `CODEOWNERS.example`의 빈 소유자 부분에 실제 팀/계정을 넣고 `.github/CODEOWNERS`로 사용한다. 존재하지 않는 계정을 생성하지 않는다. `.github/`, `AGENTS.md`, `harness/`, `scripts/`, 평가 데이터/루브릭/임계값 변경을 검토 대상으로 삼는다.
 
 ## 버전과 artifact
-워크플로는 2026-11-02 확인한 공식 release의 전체 commit SHA에 고정했다. GitHub.com의 `ubuntu-24.04` hosted runner를 대상으로 하며, self-hosted/GHES 지원은 별도 확인해야 한다. Node 24 기반 action의 입력 규격을 확인했지만 실제 GitHub runner에서 실행하지는 않았다. Dependabot PR은 변경 내용/권한/runner 호환성을 확인한 후 반영한다. 기본 업로드는 키트 자체 검증 요약 하나뿐이다. 제품 입력·원본 모델 응답·trace는 업로드하지 않는다.
+워크플로는 2026-11-02 확인한 공식 release의 전체 commit SHA에 고정했다. GitHub.com의 `ubuntu-24.04` hosted runner 실행 기록은 [Actions](https://github.com/CodingBot000/Fullstack-With-AI-Agent-SDD-Harness/actions/workflows/harness.yml)에서 확인할 수 있다. self-hosted/GHES에서 사용할 때는 runner 호환성을 확인한다. Dependabot PR은 변경 내용과 권한을 확인한 후 반영한다. 기본 업로드는 키트 자체 검증 요약이다. 제품 입력·원본 모델 응답·trace는 업로드하지 않는다.

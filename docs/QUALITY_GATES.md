@@ -3,6 +3,10 @@
 ## 두 종류의 결과
 `verify --scope kit`는 키트 자체만 검사한다. `verify --scope project`는 연결한 제품 명령과 AI 평가를 실행한다. 프로젝트가 연결되지 않았거나 필수 입력이 빠지면 종료 코드 2이며 통과가 아니다. 코드 0은 실행한 범위의 PASS, 1은 검증 실패, 2는 미설정/잘못된 입력이다.
 
+키트 검증은 `harness/tests/`의 필수 테스트 묶음만 실행한다. 필수 파일이 없거나 파일에서 테스트를 찾지 못하면 실패한다. 제품 테스트는 프로젝트 검증 명령에 등록한다.
+
+기본 보고서는 각각 `.harness/reports/kit.json`과 `.harness/reports/project.json`에 기록한다. 변경별 결과를 따로 보관할 때는 `--report`로 별도 경로를 지정한다. 경로가 명세나 평가 입력·기준선과 겹치면 검증을 시작하기 전에 종료 코드 2를 반환한다. 이미 존재하는 파일은 같은 종류의 기존 보고서인 경우에만 갱신한다.
+
 ## 프로젝트 설정
 `harness/project.json`의 키는 이 킷이 정의한 설정 형식이며 기존 서비스의 필드가 있다고 가정하지 않는다.
 
@@ -48,6 +52,6 @@ python3 scripts/harness.py verify --scope project --change specs/<change-slug>
 ## CI
 기본 CI는 외부 비밀값 없이 kit 검증을 실행한다. mode가 project이면 project job도 실행하지만 설치/테스트 서비스 준비는 제품에 맞춰 추가해야 한다. 준비가 빠지면 실패하는 것이 정상이며 우회해 초록색으로 만들지 않는다. AI 품질 평가는 제품 코드 버전·원본 결과 hash·선택한 source_paths hash를 검사해 알려진 stale 결과를 거부한다.
 
-기본 프로젝트 job은 `--change`를 전달하지 않으므로 변경별 추적성을 검사하지 않는다. 프로젝트 도입 시 변경 명세를 선택하는 신뢰할 수 있는 방식을 정하고, 런타임·fixture 준비 후 각 대상에 `python3 scripts/harness.py verify --scope project --change specs/<change-slug> --report .harness/reports/project.json`을 실행하도록 워크플로를 수정한다. 여러 변경이 있다면 각각 검사하고 누락이나 빈 목록을 성공으로 처리하지 않는다. CI에 외부 입력을 쉘 문자열로 직접 삽입하지 않는다. GitHub의 required checks도 별도로 설정한다. 연결 전 녹색 kit/project job은 변경별 승인·증거 검사나 제품 전체 품질을 보장하지 않는다.
+기본 프로젝트 job은 `--change`를 전달하지 않아 변경별 추적성을 검사하지 않는다. 제품에 도입할 때는 [변경별 검증 연결 예시](GITHUB_SETUP.md#변경별-검증-연결)처럼 런타임과 fixture를 준비한 뒤 실제 변경을 지정한다. 여러 변경을 검사할 때는 각각의 결과를 기록하고, 대상 누락이나 빈 목록을 성공으로 처리하지 않는다.
 
 CI의 각 검증 스크립트/평가기/임계값 자체도 보호 대상으로 삼는다. 테스트 파일 수정으로 gate를 없앨 권한을 에이전트에게 무제한 부여하지 않는다. required status checks와 CODEOWNERS 설정은 GitHub에서 별도로 적용한다.

@@ -4,12 +4,15 @@ from __future__ import annotations
 import argparse
 import math
 from pathlib import Path
+import sys
 from typing import Any
 from _core import (ROOT, ConfigError, digest, load_json, load_jsonl, nonnegative,
-                   positive_int, rate, require, safe_path, sha256, source_fingerprint, write_json)
+                   positive_int, rate, report_config, report_path, require, safe_path,
+                   sha256, source_fingerprint, write_report)
 
 OPS = {"equals", "contains", "not_contains", "tool_called", "tool_not_called",
        "recall_at_k", "citations_subset", "score_at_least"}
+EVAL_DATA_PATHS = ("dataset", "results", "run_manifest")
 
 
 def pointer(document: Any, path: str) -> Any:
@@ -111,7 +114,15 @@ def grade(check: dict[str, Any], record: dict[str, Any]) -> tuple[bool, float | 
             calls = trace.get("tool_calls")
             if not isinstance(calls, list):
                 return False, None
-            matches = [call for call in calls if isinstance(call, dict) and call.get("name") == check["name"]]
+            for call in calls:
+                if not isinstance(call, dict):
+                    return False, None
+                name = call.get("name")
+                if not isinstance(name, str) or not name.strip() or name != name.strip():
+                    return False, None
+                if not isinstance(call.get("arguments", {}), dict):
+                    return False, None
+            matches = [call for call in calls if call["name"] == check["name"]]
             if op == "tool_not_called":
                 return not matches, None
             return any(subset(check.get("arguments", {}), call.get("arguments", {})) for call in matches), None
@@ -143,7 +154,7 @@ def grade(check: dict[str, Any], record: dict[str, Any]) -> tuple[bool, float | 
 def load_config(path: Path, root: Path = ROOT) -> dict[str, Any]:
     cfg = load_json(path)
     require(isinstance(cfg, dict) and cfg.get("schema_version") == 1, "Unsupported eval configuration schema")
-    for name in ("dataset", "results", "run_manifest"):
+    for name in EVAL_DATA_PATHS:
         safe_path(cfg.get(name), root)
     source_fingerprint(cfg.get("source_paths"), root)
     positive_int(cfg.get("repetitions"), "repetitions")
@@ -166,7 +177,7 @@ def load_config(path: Path, root: Path = ROOT) -> dict[str, Any]:
 
 
 def evaluate(cfg: dict[str, Any], root: Path = ROOT, baseline: dict[str, Any] | None = None) -> dict[str, Any]:
-    dataset_path, records_path, manifest_path = (safe_path(cfg[name], root) for name in ("dataset", "results", "run_manifest"))
+    dataset_path, records_path, manifest_path = (safe_path(cfg[name], root) for name in EVAL_DATA_PATHS)
     cases, records, manifest = load_jsonl(dataset_path), load_jsonl(records_path), load_json(manifest_path)
     validate_cases(cases)
     require(len(cases) >= cfg["min_cases"], "Dataset smaller than configured min_cases")
@@ -258,12 +269,26 @@ def evaluate(cfg: dict[str, Any], root: Path = ROOT, baseline: dict[str, Any] | 
                             "External judge scores require independent calibration", "No statistical confidence claim"]}
 
 
+def evaluation_inputs(config: str | None, baseline: str | None, root: Path = ROOT) -> list[str | None]:
+    settings = report_config(config, root)
+    paths = [config, baseline, *(settings.get(key) for key in EVAL_DATA_PATHS)]
+    source_paths = settings.get("source_paths")
+    if isinstance(source_paths, list):
+        paths.extend(source_paths)
+    return paths
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="evals/config.json")
     parser.add_argument("--report", default=".harness/reports/eval.json")
     parser.add_argument("--baseline")
     args = parser.parse_args()
+    try:
+        target = report_path(args.report, "ai-evaluation", evaluation_inputs(args.config, args.baseline))
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     try:
         config = load_config(safe_path(args.config))
         baseline = load_json(safe_path(args.baseline)) if args.baseline else None
@@ -272,7 +297,11 @@ def main() -> int:
     except (ConfigError, OSError, TypeError, ValueError) as exc:
         report = {"scope": "ai-evaluation", "status": "NOT_CONFIGURED_OR_INVALID", "reason": str(exc)}
         code = 2
-    write_json(safe_path(args.report), report)
+    try:
+        write_report(target, report)
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     print(f"{report['scope']}: {report['status']}")
     if "reason" in report:
         print(report["reason"])
