@@ -2,11 +2,13 @@
 import copy
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from _core import ConfigError, load_json, sha256, source_fingerprint, write_json
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from _core import ROOT, ConfigError, load_json, sha256, source_fingerprint, write_json
 from evaluate import evaluate, grade, load_config, pointer, validate_cases
 
 
@@ -31,7 +33,7 @@ class EvalFixture(unittest.TestCase):
         for name,rows in (("data.jsonl",self.cases),("results.jsonl",self.records)):
             (self.root/name).write_text("".join(json.dumps(row)+"\n" for row in rows))
         self.manifest.update(dataset_sha256=sha256(self.root/"data.jsonl"),results_sha256=sha256(self.root/"results.jsonl"),
-                             source_sha256=source_fingerprint(["source.py"],self.root))
+                             source_sha256=source_fingerprint(self.cfg["source_paths"],self.root))
         write_json(self.root/"manifest.json",self.manifest)
         write_json(self.root/"config.json",self.cfg)
 
@@ -52,6 +54,52 @@ class EvaluationTests(EvalFixture):
         self.records[0]["output"]={"text":"wrong"}; self.persist()
         result=self.run_eval(); self.assertEqual(result["status"],"FAIL")
         self.assertEqual(result["pass_rate"],0.75)
+
+    def test_incomplete_tool_trace_fails_critical_assertion(self):
+        self.cases[0]["assertions"].append({
+            "op": "tool_not_called", "name": "fixture-tool", "critical": True,
+        })
+        self.records[0]["trace"]["tool_calls"] = [{}]
+        self.cfg["gates"]["min_pass_rate"] = 0.5
+        self.persist()
+        result = self.run_eval()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["critical_failures"], 1)
+        self.assertEqual(result["gate_failures"], ["critical-assertion-failed"])
+
+    def test_cli_report_preserves_evaluation_inputs_and_unrelated_file(self):
+        shutil.copytree(ROOT / "scripts", self.root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        source_dir = self.root / "src"
+        source_dir.mkdir()
+        (self.root / "source.py").rename(source_dir / "source.py")
+        self.cfg["source_paths"] = ["src"]
+        self.persist()
+        baseline = self.root / "baseline.json"
+        write_json(baseline, self.run_eval())
+        (self.root / "notes.txt").write_text("Keep this file", encoding="utf-8")
+
+        def run(report):
+            return subprocess.run(
+                [sys.executable, "scripts/evaluate.py", "--config", "config.json",
+                 "--baseline", "baseline.json", "--report", report],
+                cwd=self.root, capture_output=True, text=True, timeout=15,
+            )
+
+        for name in ("config.json", "baseline.json", "data.jsonl", "results.jsonl", "manifest.json", "notes.txt"):
+            with self.subTest(path=name):
+                path = self.root / name
+                original = path.read_bytes()
+                result = run(name)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertEqual(path.read_bytes(), original)
+        rejected = run("src/report.json")
+        self.assertEqual(rejected.returncode, 2, rejected.stdout + rejected.stderr)
+        self.assertFalse((source_dir / "report.json").exists())
+        output = "src/.harness/fresh-report.json"
+        result = run(output)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(load_json(self.root / output)["status"], "PASS")
+        self.assertEqual(run(output).returncode, 0)
 
     def test_failed_trial_cannot_be_dropped(self):
         self.records.pop(); self.persist()
@@ -184,6 +232,16 @@ class GraderTests(unittest.TestCase):
         record={"trace":{"tool_calls":[{"name":"synthetic-read","arguments":{"key":"x","limit":2}}]}}
         self.assertTrue(grade({"op":"tool_called","name":"synthetic-read","arguments":{"key":"x"}},record)[0])
         self.assertFalse(grade({"op":"tool_called","name":"synthetic-read","arguments":{"key":"y"}},record)[0])
+
+    def test_tool_not_called_requires_valid_observation(self):
+        check = {"op": "tool_not_called", "name": "fixture-tool"}
+        for calls in (None, [None], [{}], [{"name": ""}], [{"name": " "}],
+                      [{"name": "fixture-tool "}], [{"name": "other-tool", "arguments": []}]):
+            with self.subTest(calls=calls):
+                self.assertFalse(grade(check, {"trace": {"tool_calls": calls}})[0])
+        self.assertTrue(grade(check, {"trace": {"tool_calls": []}})[0])
+        self.assertTrue(grade(check, {"trace": {"tool_calls": [{"name": "other-tool"}]}})[0])
+        self.assertFalse(grade(check, {"trace": {"tool_calls": [{"name": "fixture-tool"}]}})[0])
 
     def test_recall_duplicates_do_not_inflate(self):
         passed,score=grade({"op":"recall_at_k","expected":["a","b"],"k":2,"min":1.0},{"trace":{"retrieved_ids":["a","a","b"]}})

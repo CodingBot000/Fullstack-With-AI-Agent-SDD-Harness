@@ -5,14 +5,21 @@ Codex와 Claude Code에서 공유하는 **도메인 비종속 개발 규칙, 선
 > 이 저장소는 서비스 완제품이 아닙니다. 키트 자체의 자동 검증은 실행되지만, 실제 앱 테스트와 모델 품질 평가는 프로젝트 연결 후 실행됩니다. 연결 전 제품 상태는 `NOT_CONFIGURED`입니다.
 
 ## 시작
-Python 3.10 이상이 필요합니다. 기본 자체 검증은 추가 패키지·API 키·네트워크 없이 실행됩니다.
 
-```bash
-python3 scripts/harness.py doctor
-python3 scripts/harness.py verify --scope kit
-```
+1. [Use this template](https://github.com/CodingBot000/Fullstack-With-AI-Agent-SDD-Harness/generate)에서 새 GitHub 저장소를 만든 뒤 내려받습니다. 파일부터 받고 싶다면 GitHub의 **Code → Download ZIP**을 사용합니다. 특정 버전은 [Releases](https://github.com/CodingBot000/Fullstack-With-AI-Agent-SDD-Harness/releases)에서 해당 릴리스의 **Source code (zip)**으로 받을 수 있습니다.
+2. Python 3.10 이상이 있는 환경에서 새 프로젝트 폴더를 열고 아래 명령을 실행합니다. 키트 검사에는 추가 패키지, API 키, 네트워크가 필요하지 않습니다.
 
-Codex에는 [CODEX_BOOTSTRAP.md](CODEX_BOOTSTRAP.md)의 지시문을, Claude Code에는 [CLAUDE_BOOTSTRAP.md](CLAUDE_BOOTSTRAP.md)를 전달합니다. 기존 저장소에 적용할 때는 **덮어쓰기 대신 차이를 확인하고 병합**합니다.
+   ```bash
+   python3 scripts/harness.py doctor
+   python3 scripts/harness.py verify --scope kit
+   ```
+
+3. 사용 중인 도구에 아래 요청을 붙여 넣고 `[프로젝트 설명]`을 채웁니다.
+
+   - **Codex** · “`CODEX_BOOTSTRAP.md`를 읽고 `[프로젝트 설명]`을 바탕으로 요구사항과 첫 기능의 구현 계획을 정리해줘.”
+   - **Claude Code** · “`CLAUDE_BOOTSTRAP.md`를 읽고 `[프로젝트 설명]`을 바탕으로 요구사항과 첫 기능의 구현 계획을 정리해줘.”
+
+첫 구현과 검증까지의 순서는 [시작 안내](START_HERE.md)에 있습니다. 기존 저장소에 추가할 때는 기존 지침과 CI를 확인하고 필요한 부분을 병합합니다.
 
 ## 구조
 
@@ -25,7 +32,7 @@ Codex에는 [CODEX_BOOTSTRAP.md](CODEX_BOOTSTRAP.md)의 지시문을, Claude Cod
 | `harness/project.json` | 실제 저장소에서 확인한 capability·검증 명령 연결 |
 | `scripts/harness.py` | 지침 출력, 스킬 동기화, 명세 생성, 품질 gate |
 | `scripts/collect_eval.py`, `scripts/evaluate.py` | 프로젝트 어댑터 실행 / 결과 채점·회귀 비교 |
-| `tests/` | 키트 자체의 실패·경계조건 회귀 테스트 |
+| `harness/tests/` | 키트 전용 회귀 테스트와 실행기 |
 | `.github/` | 최소 권한 CI, PR 템플릿, 보호 규칙 적용 안내 |
 | `evidence/` | 검증 결과·개선 사례·경력기술서 증빙 템플릿 |
 

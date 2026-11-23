@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from _core import ConfigError, ROOT, load_json, write_json
 from harness import (EvidenceFailed, REQUIRED_GATES, doctor, new_change, preflight, project_config,
                      skill_names, sync_skills, verify, verify_change)
@@ -36,6 +36,15 @@ class HarnessTests(unittest.TestCase):
                    "commands":[], "ai_evaluation":{"enabled":False,"config":"evals/config.json","baseline":None}})
 
     def write_cfg(self,cfg): write_json(self.root/"harness/project.json",cfg)
+
+    def copy_cli(self):
+        shutil.copytree(ROOT / "scripts", self.root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+
+    def run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, "scripts/harness.py", *args], cwd=self.root,
+            capture_output=True, text=True, timeout=15,
+        )
 
     def frontend_cfg(self, failure=False):
         cfg=load_json(self.root/"harness/project.json")
@@ -158,9 +167,8 @@ class HarnessTests(unittest.TestCase):
 
     def test_new_project_cli_flow_and_failed_evidence(self):
         # Synthetic fixture: no product, real approval, external service, or model.
-        shutil.copytree(ROOT / "scripts", self.root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
-        def run(*args):
-            return subprocess.run([sys.executable, "scripts/harness.py", *args], cwd=self.root, capture_output=True, text=True)
+        self.copy_cli()
+        run = self.run_cli
         self.assertEqual(run("verify", "--scope", "project").returncode, 2)
         self.assertEqual(run("new-change", "fixture", "--areas", "frontend").returncode, 0)
         folder = self.root / "specs/fixture"
@@ -168,24 +176,99 @@ class HarnessTests(unittest.TestCase):
         change["approval"] = {"status": "approved", "reference": "synthetic fixture only"}
         change["requirements"] = [{"id": "req-test", "description": "fixture", "evidence": [{"kind": "command", "id": "test-static"}]}]
         write_json(folder / "change.json", change)
-        for name in ("spec.md", "design.md", "tasks.md", "verification.md"):
+        for name in ("spec.md", "design.md", "tasks.md"):
             (folder / name).write_text("req-test fixture")
         self.frontend_cfg()
-        self.assertEqual(run("verify", "--scope", "project", "--change", "specs/fixture").returncode, 0)
+        self.assertEqual(run("verify", "--scope", "project").returncode, 0)
+        project_report = self.root / ".harness/reports/project.json"
+        self.assertEqual(load_json(project_report)["traceability"]["status"], "NOT_REQUESTED")
+        (folder / "verification.md").write_text("req-test passed in the product report")
+        change_args = (
+            "verify", "--scope", "project", "--change", "specs/fixture",
+            "--report", ".harness/reports/change.json",
+        )
+        self.assertEqual(run(*change_args).returncode, 0)
+        self.assertEqual(load_json(project_report)["traceability"]["status"], "NOT_REQUESTED")
         self.frontend_cfg(failure=True)
-        failed = run("verify", "--scope", "project", "--change", "specs/fixture")
+        failed = run(*change_args)
         self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
-        report = load_json(self.root / ".harness/reports/verification.json")
+        report = load_json(self.root / ".harness/reports/change.json")
         self.assertEqual(report["status"], "FAIL")
         self.assertEqual(report["traceability"]["status"], "FAIL")
         (folder / "spec.md").write_text("[TODO]")
-        mixed = run("verify", "--scope", "project", "--change", "specs/fixture")
+        mixed = run(*change_args)
         self.assertEqual(mixed.returncode, 1)
-        report = load_json(self.root / ".harness/reports/verification.json")
+        report = load_json(self.root / ".harness/reports/change.json")
         self.assertEqual(report["traceability"]["status"], "NOT_CONFIGURED_OR_INVALID")
         self.assertTrue(any(item["status"] == "FAIL" for item in report["commands"]))
         self.frontend_cfg()
-        self.assertEqual(run("verify", "--scope", "project", "--change", "specs/fixture").returncode, 2)
+        self.assertEqual(run(*change_args).returncode, 2)
+
+    def test_kit_scope_isolated_from_product_tests_and_report(self):
+        self.copy_cli()
+        suites = self.root / "harness/tests"
+        suites.mkdir()
+        shutil.copyfile(ROOT / "harness/tests/run.py", suites / "run.py")
+        fixture = (
+            "import unittest\n"
+            "class Fixture(unittest.TestCase):\n"
+            "    def test_fixture(self):\n"
+            "        self.assertEqual(1 + 1, 2)\n"
+        )
+        for source in (ROOT / "harness/tests").glob("test_*.py"):
+            (suites / source.name).write_text(fixture, encoding="utf-8")
+        product = self.root / "tests"
+        product.mkdir()
+        (product / "test_product.py").write_text("raise RuntimeError('Product test was imported')\n")
+
+        kit = self.run_cli("verify", "--scope", "kit")
+        self.assertEqual(kit.returncode, 0, kit.stdout + kit.stderr)
+        kit_report = (self.root / ".harness/reports/kit.json").read_bytes()
+        self.assertEqual(self.run_cli("verify", "--scope", "project").returncode, 2)
+        self.assertEqual((self.root / ".harness/reports/kit.json").read_bytes(), kit_report)
+        self.assertEqual(load_json(self.root / ".harness/reports/project.json")["scope"], "project")
+
+        required = suites / "test_core.py"
+        required.write_text("", encoding="utf-8")
+        empty = self.run_cli("verify", "--scope", "kit")
+        self.assertEqual(empty.returncode, 1, empty.stdout + empty.stderr)
+        self.assertIn("No tests discovered", empty.stderr)
+        required.unlink()
+        missing = self.run_cli("verify", "--scope", "kit")
+        self.assertEqual(missing.returncode, 1, missing.stdout + missing.stderr)
+        self.assertIn("Missing required kit test suite", missing.stderr)
+
+    def test_report_cannot_overwrite_project_config_or_start_gates(self):
+        self.copy_cli()
+        cfg = self.frontend_cfg()
+        cfg["commands"][0]["argv"] = [
+            "{python}", "-c", "from pathlib import Path; Path('gate-started').touch()",
+        ]
+        self.write_cfg(cfg)
+        config = self.root / "harness/project.json"
+        original = config.read_bytes()
+        for path, message in (
+            ("./harness/project.json", "Report path must differ from input files"),
+            ("harness/project.json/report.json", "Report parent is not a directory"),
+        ):
+            with self.subTest(path=path):
+                result = self.run_cli("verify", "--scope", "project", "--report", path)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertFalse((self.root / "gate-started").exists())
+                self.assertEqual(config.read_bytes(), original)
+        result = self.run_cli(
+            "verify", "--scope", "project", "--change", "specs/first", "--report", "specs/first",
+        )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertFalse((self.root / "specs/first").exists())
+        self.assertFalse((self.root / "gate-started").exists())
+
+        managed_skills = self.root / "harness/managed-skills.json"
+        managed_skills.unlink()
+        result = self.run_cli("verify", "--scope", "kit", "--report", "harness/managed-skills.json")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertFalse(managed_skills.exists())
 
     def test_evaluation_evidence_distinguishes_failed_and_missing(self):
         folder = new_change("synthetic-eval", ["ai"], "low", self.root)
